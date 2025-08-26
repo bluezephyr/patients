@@ -11,6 +11,7 @@ class Patient:
     def __init__(self, row) -> None:
         self.id = row[ID_POS]
         self.data = row
+        self.first_idx = len(row)  # First non used column
 
 
 class Doctor:
@@ -28,7 +29,6 @@ def read_doctor_data(input_file):
         for name in f:
             name = name.rstrip(" \t\n\r")
             if name:
-                print(name)
                 doctors[idx] = Doctor(name)
                 idx += 1
     return doctors
@@ -60,6 +60,21 @@ def write_patient_data(header, patients, output_file):
             patient_writer.writerow(patient.data)
 
 
+def print_distribution_info(doctors):
+    total_first = 0
+    total_second = 0
+
+    print()
+    print("Distribution (first - second)")
+    for d in doctors.values():
+        print(f"{d.name}: {len(d.patients_first)} - {len(d.patients_second)}")
+        total_first += len(d.patients_first)
+        total_second += len(d.patients_second)
+    print(f"Total first: {total_first}")
+    print(f"Total second: {total_second}")
+    print()
+
+
 def distribute_first(patients, doctors):
     """Distribute evenly the list of patients on the doctors. Update the doctor's
     patients_first attribute accordingly."""
@@ -78,19 +93,32 @@ def distribute_first(patients, doctors):
             # Find patient and add doctor in first output column
             patients[patient_id].data.append(doctor.name)
 
-    # TODO: Remove printout
-    total_distributed = 0
-    for _, d in doctors.items():
-        print(f"Patients: {len(d.patients_first)}")
-        total_distributed += len(d.patients_first)
-    print(f"Distributed: {total_distributed}")
-
 
 def distribute_second(patients, doctors):
     """Distribute the patients a second time. The patients shall be distributed
-    evenly and randomly. No patient may end up at the same doctor as in the first
+    evenly and randomly. No patient must end up at the same doctor as in the first
     round."""
-    pass
+    patients_ids = [p.id for p in patients.values()]
+    picked_ids = []
+
+    while len(picked_ids) < len(patients_ids):
+        for doctor in doctors.values():
+            # Create a list of all patients that the doctor has not in its first round and
+            # that have not already been picked. Shuffle the list and pick one patient and
+            # add it to the doctor's second list.
+            remaining_ids = [
+                p for p in patients_ids if p not in doctor.patients_first and p not in picked_ids
+            ]
+            if len(remaining_ids) > 0:
+                random.shuffle(remaining_ids)
+                picked_id = remaining_ids[0]
+                doctor.patients_second.append(picked_id)
+                picked_ids.append(picked_id)
+
+    for doctor in doctors.values():
+        for patient_id in doctor.patients_second:
+            # Find patient and add doctor in second output column
+            patients[patient_id].data.append(doctor.name)
 
 
 def check_input(patients, doctors):
@@ -126,6 +154,43 @@ def check_input(patients, doctors):
     print(f"Number of doctors: {len(doctors)}")
     print(f"Number of patients: {len(patients)} (unique: {len(s)})")
     return input_ok
+
+
+def check(condition, error_message):
+    """Helper function"""
+    if not condition:
+        print(f"ERROR: {error_message}")
+        exit()
+
+
+def check_distribution(doctors, patients):
+    """Run some checks on the distribution. Exit if any errors are found"""
+    first_round = []
+    second_round = []
+    for doctor in doctors.values():
+        # Make sure that no patient is handled twice
+        check(
+            len(set(doctor.patients_first) - set(doctor.patients_second)) != 0,
+            f"At least one patient handled twice by {doctor.name}",
+        )
+        first_round.extend(doctor.patients_first)
+        second_round.extend(doctor.patients_second)
+
+    # Make sure that all patients are handled in both rounds
+    all_patient_ids = {p.id for p in patients.values()}
+    check(
+        len(first_round) == len(patients) and set(first_round) - all_patient_ids == set(),
+        f"Not all patients handled in the first round",
+    )
+    check(
+        len(second_round) == len(patients) and set(second_round) - all_patient_ids == set(),
+        f"Not all patients handled in the second round",
+    )
+    for patient in patients.values():
+        check(
+            patient.data[patient.first_idx] == patient.data[patient.first_idx + 1],
+            f"Patient {patient.id} handled by the same doctor twice",
+        )
 
 
 if __name__ == "__main__":
@@ -167,6 +232,9 @@ time. Each patient is then placed on a new doctor.""",
 
     distribute_first(patients, doctors)
     distribute_second(patients, doctors)
+    print_distribution_info(doctors)
+
+    check_distribution(doctors, patients)
 
     write_patient_data(header, patients, args.output)
     print("Finished in {} seconds".format(time.process_time()))
