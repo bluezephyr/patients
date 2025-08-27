@@ -98,22 +98,21 @@ def distribute_second(patients, doctors):
     """Distribute the patients a second time. The patients shall be distributed
     evenly and randomly. No patient must end up at the same doctor as in the first
     round."""
-    patients_ids = [p.id for p in patients.values()]
-    picked_ids = []
+    remaining_ids = [p.id for p in patients.values()]
+    nof_remaining = len(remaining_ids)
 
-    while len(picked_ids) < len(patients_ids):
+    while nof_remaining > 0:
         for doctor in doctors.values():
             # Create a list of all patients that the doctor has not in its first round and
             # that have not already been picked. Shuffle the list and pick one patient and
             # add it to the doctor's second list.
-            remaining_ids = [
-                p for p in patients_ids if p not in doctor.patients_first and p not in picked_ids
-            ]
-            if len(remaining_ids) > 0:
-                random.shuffle(remaining_ids)
-                picked_id = remaining_ids[0]
+            selection = [p for p in remaining_ids if p not in doctor.patients_first]
+            if len(selection) > 0:
+                random.shuffle(selection)
+                picked_id = selection[0]
                 doctor.patients_second.append(picked_id)
-                picked_ids.append(picked_id)
+                remaining_ids.remove(picked_id)
+                nof_remaining -= 1
 
     for doctor in doctors.values():
         for patient_id in doctor.patients_second:
