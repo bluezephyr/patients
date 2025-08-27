@@ -188,7 +188,7 @@ def check_distribution(doctors, patients):
     )
     for patient in patients.values():
         check(
-            patient.data[patient.first_idx] == patient.data[patient.first_idx + 1],
+            patient.data[patient.first_idx] != patient.data[patient.first_idx + 1],
             f"Patient {patient.id} handled by the same doctor twice",
         )
 
